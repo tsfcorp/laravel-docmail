@@ -168,6 +168,16 @@ class DocmailService
     }
 
     /**
+     * Added by Chris Herbert on 19/05/2016. This tells the API to Auto Correct any addresses.
+     * See their API document http://www.cfhdocmail.com/downloads/WebServiceHelp2.pdf
+     */
+    public function setAutoCorrect()
+    {
+        $response = $this->doApiCall('AutoCorrectAddresses', $this->mergeRequestParameters(['MailingGUID' => $this->MailingGUID, 'CorrectionMethod' => 'All'], false));
+        return $response;
+    }
+
+    /**
      * If the order is processed this function will return the content of the Proof PDF File.
      *
      * Keep in mind that after sending a mailing the servers need a few seconds to one minute
@@ -178,6 +188,24 @@ class DocmailService
     public function getProofFile()
     {
         $response = base64_decode($this->doApiCall('GetProofFile', $this->mergeRequestParameters([])));
+        if(substr($response, 0, 5) == 'Error') {
+            return null;
+        }
+        return $response;
+    }
+
+    public function getMailingList()
+    {
+        $response = base64_decode($this->doApiCall('GetMailingListZip', $this->mergeRequestParameters([])));
+        if(substr($response, 0, 5) == 'Error') {
+            return null;
+        }
+        return $response;
+    }
+
+    public function getDetails()
+    {
+        $response = $this->doApiCall('GetMailingDetails', $this->mergeRequestParameters([]));
         if(substr($response, 0, 5) == 'Error') {
             return null;
         }
@@ -375,7 +403,7 @@ class DocmailService
 
         //poll GetStatus in a loop until the processing has completed
         //loop a maximum of 10 times, with a 10 second delay between iterations.
-        //	alternatively; handle callbacks from the HttpPostOnSuccess & HttpPostOnError parameters on ProcessMailing to identify when the processing has completed
+        //  alternatively; handle callbacks from the HttpPostOnSuccess & HttpPostOnError parameters on ProcessMailing to identify when the processing has completed
         $i = 0;
         do {
             // other available params listed here:  (https://www.cfhdocmail.com/TestAPI2/DMWS.asmx?op=GetStatus) returns the status of a mailing from the mailing guid
@@ -384,9 +412,9 @@ class DocmailService
             $Status = $this->getResultField($result,"Status");
             $Error = $this->getResultField($result,"Error code");
             //end loop once processing is complete
-            if ($Status== $ExpectedStatus ){break;}	//success
-            if ($Status== "Error in processing" ){break;}	//error in processing
-            if ($Error ){break;}			//error
+            if ($Status== $ExpectedStatus ){break;} //success
+            if ($Status== "Error in processing" ){break;}   //error in processing
+            if ($Error ){break;}            //error
 
             sleep(10);//wait 10 seconds before repeating
             ++$i;
@@ -420,7 +448,7 @@ class DocmailService
     private function checkError($Res){
         if ($Res == null) return;
 
-        if (is_array($Res))	reset($Res);
+        if (is_array($Res)) reset($Res);
         //check for  the keys 'Error code', 'Error code string' and 'Error message' to test/report errors
         $errCode = $this->getResultField($Res,"Error code");
         if($errCode) {
@@ -428,7 +456,7 @@ class DocmailService
             $errMsg = $this->getResultField($Res,"Error message");
             throw new DocmailException($errCode." ".$errName." - ".$errMsg);
         }
-        if (is_array($Res))	reset($Res);
+        if (is_array($Res)) reset($Res);
         flush();
     }
 
@@ -439,7 +467,7 @@ class DocmailService
         for ( $lineCounter=0;$lineCounter < count($lines); $lineCounter+=1){
             $fields = explode(":",$lines[$lineCounter]);
             //find matching field name
-            if ($fields[0]==$FldName)	{
+            if ($fields[0]==$FldName)   {
                 return ltrim($fields[1], " "); //return value
             }
         }
